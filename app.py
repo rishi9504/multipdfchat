@@ -1,6 +1,7 @@
 import streamlit as st
 from dotenv import load_dotenv
-from pypdf2 import PdfReader
+from PyPDF2 import PdfReader
+from langchain.text_splitter import CharacterTextSplitter
 
 
 def get_pdf_text(pdf_docs):
@@ -27,6 +28,18 @@ def get_pdf_text(pdf_docs):
 
     return text
 
+def get_text_chunks(text):
+    """
+    Given a body of text, split it into 1000 character chunks
+    """
+    text_splitter = CharacterTextSplitter(
+        separator="\n",
+        chunk_size=1000,
+        chunk_overlap=200,
+        length_function=len,
+    )
+    chunks = text_splitter.create_documents([text])
+    return chunks
 
 
 
@@ -47,6 +60,9 @@ def main():
 
 
                 # get the text chunks
+                text_chunks = get_text_chunks(raw_text)
+                st.write(text_chunks)
+
 
                 # create vector store
         
