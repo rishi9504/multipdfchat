@@ -2,7 +2,9 @@ import streamlit as st
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
-
+from langchain.embeddings import OpenAIEmbeddings,HuggingFaceInstructEmbeddings
+from langchain.vectorstores import FAISS
+ 
 
 def get_pdf_text(pdf_docs):
     """
@@ -41,7 +43,19 @@ def get_text_chunks(text):
     chunks = text_splitter.create_documents([text])
     return chunks
 
+def get_vector_score(text_chunks):
+    """
+    Given a list of text chunks, create a vector store
+    """
+    
 
+    embeddings = OpenAIEmbeddings() ## chargable, but using this
+    # below is the way we can use for instruct embeddings on local systems with no money required
+
+    # embeddings = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl") #too slow for current setup 
+    vector_store = FAISS.from_documents(text_chunks, embeddings)
+
+    return vector_store
 
 
 def main():
@@ -61,10 +75,10 @@ def main():
 
                 # get the text chunks
                 text_chunks = get_text_chunks(raw_text)
-                st.write(text_chunks)
 
 
                 # create vector store
+                vector_store = get_vector_score(text_chunks)
         
 
 
