@@ -4,7 +4,11 @@ from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings,HuggingFaceInstructEmbeddings
 from langchain.vectorstores import FAISS
- 
+from langchain.memory import ConversationBufferMemory
+from langchain.chains import ConversationalRetrievalChain
+from langchain.chat_models import ChatOpenAI 
+from htmlTemplates import css, bot_template, user_template
+from langchain.llms import HuggingFaceHub
 
 def get_pdf_text(pdf_docs):
     """
@@ -57,12 +61,47 @@ def get_vector_score(text_chunks):
 
     return vector_store
 
+def get_conversation_chain(vector_store):
+    llm = ChatOpenAI()
+    #if we want to use hugging face model instead of chatgpt
+    # llm = HuggingFaceHub(repo_id="google/flan-t5-xxl", model_kwargs={"temperature":0.5, "max_length":512})
+    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+
+    conversation = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=vector_store.as_retriever(),
+        memory=memory
+    )
+
+    return conversation
+
+def handle_user_question(user_question):
+    response = st.session_state.conversation({"question": user_question})
+    st.session_state.chat_history = response["chat_history"]
+    for i, message in enumerate(st.session_state.chat_history):
+        if i % 2 == 0:
+            st.write(user_template.replace("{{MSG}}", message.content), unsafe_allow_html=True)
+        else:
+            st.write(bot_template.replace("{{MSG}}", message.content), unsafe_allow_html=True)    
+
+
 
 def main():
     load_dotenv()
     st.set_page_config(page_title="Chat with multiple PDFs", page_icon=":books:", layout="wide")
+    st.write(css, unsafe_allow_html=True)
+    if "conversation" not in st.session_state:
+        st.session_state.conversation = None
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = None
+
     st.header("Chat with multiple PDFs")
-    st.text_input("Ask a question about your documents:")
+    user_question = st.text_input("Ask a question about your documents:")
+    if user_question:
+        handle_user_question(user_question)
+    # st.write(user_template.replace("{{MSG}}", "Hello Bot"), unsafe_allow_html=True)
+
+    # st.write(bot_template.replace("{{MSG}}", "Hello Human"), unsafe_allow_html=True)
 
     with st.sidebar:
         st.subheader("Your Documents")
@@ -79,8 +118,12 @@ def main():
 
                 # create vector store
                 vector_store = get_vector_score(text_chunks)
-        
 
+                # create conv chain
+
+                st.session_state.conversation = get_conversation_chain(vector_store)
+        
+    
 
 
 if __name__ == "__main__":
